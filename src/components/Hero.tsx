@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-resort.jpg";
 
 export const Hero = () => {
-  const scrollToRooms = () => {
-    const roomsSection = document.getElementById("rooms");
-    roomsSection?.scrollIntoView({ behavior: "smooth" });
+  const navigate = useNavigate();
+
+  const handleBookNow = () => {
+    navigate("/booking");
   };
 
   return (
@@ -29,10 +31,10 @@ export const Hero = () => {
           </p>
           <Button
             size="lg"
-            onClick={scrollToRooms}
+            onClick={handleBookNow}
             className="mt-8 bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-[0_8px_30px_rgb(0,188,212,0.4)] transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-[0_12px_40px_rgb(0,188,212,0.5)]"
           >
-            EXPLORE NOW
+            BOOK NOW
           </Button>
         </div>
       </div>
