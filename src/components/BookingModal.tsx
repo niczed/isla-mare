@@ -7,13 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
-import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone, Sparkles } from "lucide-react";
+import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone, Sparkles, CreditCard, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 
 const ADD_ONS = [
   { id: "massage", label: "In-room massage", price: "₱800/hour" },
@@ -27,12 +26,27 @@ const ADD_ONS = [
   { id: "laundry", label: "Laundry service", price: "Based on weight/item" },
 ];
 
+const PAYMENT_METHODS = [
+  { id: "gcash", label: "GCash", icon: "💚" },
+  { id: "maya", label: "Maya (PayMaya)", icon: "💜" },
+  { id: "grabpay", label: "GrabPay", icon: "💛" },
+  { id: "shopeepay", label: "ShopeePay", icon: "🧡" },
+  { id: "bpi", label: "BPI Online", icon: "🏦" },
+  { id: "bdo", label: "BDO Online", icon: "🏦" },
+  { id: "unionbank", label: "UnionBank", icon: "🏦" },
+  { id: "creditcard", label: "Credit/Debit Card", icon: "💳" },
+  { id: "paypal", label: "PayPal", icon: "🌐" },
+  { id: "cash", label: "Cash on Arrival", icon: "💵" },
+];
+
 interface Room {
   title: string;
   description: string;
   price: string;
   image: string;
   capacity: number;
+  amenities?: string[];
+  targetAudience?: string;
 }
 
 interface BookingModalProps {
@@ -42,9 +56,7 @@ interface BookingModalProps {
 }
 
 export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) => {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     name: "",
@@ -56,6 +68,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleAddOn = (id: string) => {
@@ -71,16 +84,6 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to make a booking.",
-        variant: "destructive",
-      });
-      navigate("/auth");
-      return;
-    }
 
     if (!checkIn || !checkOut) {
       toast({
@@ -91,10 +94,22 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
       return;
     }
 
+    if (!paymentMethod) {
+      toast({
+        title: "Payment Method Required",
+        description: "Please select a payment method.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
+    // Generate a unique booking ID for guests without accounts
+    const guestBookingId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     const { error } = await supabase.from("bookings").insert({
-      user_id: user.id,
+      user_id: guestBookingId,
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
@@ -116,7 +131,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
 
     toast({
       title: "Booking Confirmed!",
-      description: `Your stay at ${room?.title} has been booked successfully.`,
+      description: `Your stay at ${room?.title} has been booked successfully. We will contact you shortly.`,
     });
 
     onOpenChange(false);
@@ -124,13 +139,14 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
     setCheckIn(undefined);
     setCheckOut(undefined);
     setSelectedAddOns([]);
+    setPaymentMethod("");
   };
 
   if (!room) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Book Your Paradise Stay
@@ -185,7 +201,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                   type="tel"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="+63 9XX XXX XXXX"
                   required
                   className="bg-background"
                 />
@@ -276,7 +292,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                   <Sparkles className="h-4 w-4 text-primary" />
                   Add-Ons (Optional)
                 </Label>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-2 border rounded-lg p-2 bg-muted/20">
                   {ADD_ONS.map((addon) => (
                     <div
                       key={addon.id}
@@ -297,6 +313,25 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-primary" />
+                  Payment Method
+                </Label>
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-2 gap-2">
+                  {PAYMENT_METHODS.map((method) => (
+                    <div key={method.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={method.id} id={method.id} />
+                      <Label htmlFor={method.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <span>{method.icon}</span>
+                        <span>{method.label}</span>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
               </div>
 
               <div className="space-y-2">
@@ -335,37 +370,60 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
 
               <div>
                 <h3 className="text-xl font-bold text-foreground">{room.title}</h3>
+                {room.targetAudience && (
+                  <span className="inline-block mt-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                    {room.targetAudience}
+                  </span>
+                )}
                 <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
                   {room.description}
                 </p>
               </div>
 
               <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-primary/10">
-                <span className="text-sm text-muted-foreground">Price per night</span>
-                <span className="text-2xl font-bold text-primary">{room.price}</span>
+                <span className="text-sm text-muted-foreground">Price</span>
+                <span className="text-xl font-bold text-primary">{room.price}</span>
               </div>
 
-              <div className="space-y-3">
-                <h4 className="font-semibold text-foreground">Key Amenities</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4 text-primary" />
-                    <span>Up to {room.capacity} guests</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Wifi className="h-4 w-4 text-primary" />
-                    <span>Free WiFi</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Waves className="h-4 w-4 text-primary" />
-                    <span>Ocean View</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarIcon className="h-4 w-4 text-primary" />
-                    <span>24/7 Service</span>
+              {/* Amenities */}
+              {room.amenities && room.amenities.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-foreground">Amenities</h4>
+                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-2">
+                    {room.amenities.map((amenity, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
+                        <span>{amenity}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Default Amenities if none provided */}
+              {(!room.amenities || room.amenities.length === 0) && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-foreground">Key Amenities</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4 text-primary" />
+                      <span>Up to {room.capacity} guests</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Wifi className="h-4 w-4 text-primary" />
+                      <span>Free WiFi</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Waves className="h-4 w-4 text-primary" />
+                      <span>Ocean View</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CalendarIcon className="h-4 w-4 text-primary" />
+                      <span>24/7 Service</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
