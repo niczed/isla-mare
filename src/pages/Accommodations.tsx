@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Wifi, Waves } from "lucide-react";
@@ -126,9 +126,7 @@ const Accommodations = () => {
         </section>
       </main>
 
-      <Footer />
-
-      <BookingModal 
+      <BookingModal
         room={selectedRoom} 
         open={modalOpen} 
         onOpenChange={setModalOpen} 

@@ -6,13 +6,26 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
-import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone } from "lucide-react";
+import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+
+const ADD_ONS = [
+  { id: "massage", label: "In-room massage", price: "₱800/hour" },
+  { id: "cabana", label: "All-day cabana rental", price: "₱1,000" },
+  { id: "bonfire", label: "Bonfire setup (night)", price: "₱1,200 (up to 6 pax)" },
+  { id: "gym", label: "Gym use and shower", price: "₱600" },
+  { id: "checkin", label: "Early check-in / late check-out", price: "₱1,000–₱2,000" },
+  { id: "decoration", label: "Room decoration (honeymoon, birthday, etc.)", price: "₱1,500–₱3,000" },
+  { id: "extrabed", label: "Extra bed or mattress", price: "₱800–₱1,000/night" },
+  { id: "transfer", label: "Airport or van transfers", price: "₱2,500–₱3,500 roundtrip" },
+  { id: "laundry", label: "Laundry service", price: "Based on weight/item" },
+];
 
 interface Room {
   title: string;
@@ -42,7 +55,14 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
   });
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
+  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const toggleAddOn = (id: string) => {
+    setSelectedAddOns((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -103,6 +123,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
     setFormData({ name: "", email: "", phone: "", guests: 1, specialRequests: "" });
     setCheckIn(undefined);
     setCheckOut(undefined);
+    setSelectedAddOns([]);
   };
 
   if (!room) return null;
@@ -249,6 +270,35 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                 />
               </div>
 
+              {/* Add-Ons Section */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Add-Ons (Optional)
+                </Label>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {ADD_ONS.map((addon) => (
+                    <div
+                      key={addon.id}
+                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <Checkbox
+                        id={addon.id}
+                        checked={selectedAddOns.includes(addon.id)}
+                        onCheckedChange={() => toggleAddOn(addon.id)}
+                      />
+                      <label
+                        htmlFor={addon.id}
+                        className="flex-1 text-sm cursor-pointer"
+                      >
+                        <span className="text-foreground">{addon.label}</span>
+                        <span className="text-muted-foreground ml-2">({addon.price})</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
                 <Textarea
@@ -257,7 +307,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                   value={formData.specialRequests}
                   onChange={handleChange}
                   placeholder="Any special requirements or preferences..."
-                  rows={3}
+                  rows={2}
                   className="bg-background resize-none"
                 />
               </div>
