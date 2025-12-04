@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       bookings: {
         Row: {
+          add_ons: string[] | null
+          booking_type: string | null
           check_in: string
           check_out: string
           created_at: string | null
@@ -23,12 +25,19 @@ export type Database = {
           guests: number
           id: string
           name: string
+          payment_method: string | null
+          payment_status: string | null
           phone: string
+          room_price: string | null
+          room_type: string | null
+          special_requests: string | null
           status: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          add_ons?: string[] | null
+          booking_type?: string | null
           check_in: string
           check_out: string
           created_at?: string | null
@@ -36,12 +45,19 @@ export type Database = {
           guests: number
           id?: string
           name: string
+          payment_method?: string | null
+          payment_status?: string | null
           phone: string
+          room_price?: string | null
+          room_type?: string | null
+          special_requests?: string | null
           status?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          add_ons?: string[] | null
+          booking_type?: string | null
           check_in?: string
           check_out?: string
           created_at?: string | null
@@ -49,10 +65,15 @@ export type Database = {
           guests?: number
           id?: string
           name?: string
+          payment_method?: string | null
+          payment_status?: string | null
           phone?: string
+          room_price?: string | null
+          room_type?: string | null
+          special_requests?: string | null
           status?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

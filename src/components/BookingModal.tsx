@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
-import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone, Sparkles, CreditCard, Wallet } from "lucide-react";
+import { CalendarIcon, Users, Wifi, Waves, User, Mail, Phone, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const ADD_ONS = [
@@ -24,19 +23,6 @@ const ADD_ONS = [
   { id: "extrabed", label: "Extra bed or mattress", price: "₱800–₱1,000/night" },
   { id: "transfer", label: "Airport or van transfers", price: "₱2,500–₱3,500 roundtrip" },
   { id: "laundry", label: "Laundry service", price: "Based on weight/item" },
-];
-
-const PAYMENT_METHODS = [
-  { id: "gcash", label: "GCash", icon: "💚" },
-  { id: "maya", label: "Maya (PayMaya)", icon: "💜" },
-  { id: "grabpay", label: "GrabPay", icon: "💛" },
-  { id: "shopeepay", label: "ShopeePay", icon: "🧡" },
-  { id: "bpi", label: "BPI Online", icon: "🏦" },
-  { id: "bdo", label: "BDO Online", icon: "🏦" },
-  { id: "unionbank", label: "UnionBank", icon: "🏦" },
-  { id: "creditcard", label: "Credit/Debit Card", icon: "💳" },
-  { id: "paypal", label: "PayPal", icon: "🌐" },
-  { id: "cash", label: "Cash on Arrival", icon: "💵" },
 ];
 
 interface Room {
@@ -57,6 +43,7 @@ interface BookingModalProps {
 
 export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     name: "",
@@ -68,8 +55,6 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleAddOn = (id: string) => {
     setSelectedAddOns((prev) =>
@@ -82,7 +67,7 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!checkIn || !checkOut) {
@@ -94,52 +79,23 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
       return;
     }
 
-    if (!paymentMethod) {
-      toast({
-        title: "Payment Method Required",
-        description: "Please select a payment method.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Generate a unique booking ID for guests without accounts
-    const guestBookingId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const { error } = await supabase.from("bookings").insert({
-      user_id: guestBookingId,
+    // Prepare booking data for payment page
+    const bookingData = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      check_in: format(checkIn, "yyyy-MM-dd"),
-      check_out: format(checkOut, "yyyy-MM-dd"),
       guests: formData.guests,
-    });
+      checkIn: format(checkIn, "yyyy-MM-dd"),
+      checkOut: format(checkOut, "yyyy-MM-dd"),
+      roomType: room?.title,
+      roomPrice: room?.price,
+      addOns: selectedAddOns.map(id => ADD_ONS.find(a => a.id === id)?.label).filter(Boolean),
+      specialRequests: formData.specialRequests,
+    };
 
-    setIsSubmitting(false);
-
-    if (error) {
-      toast({
-        title: "Booking Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Booking Confirmed!",
-      description: `Your stay at ${room?.title} has been booked successfully. We will contact you shortly.`,
-    });
-
+    // Close modal and navigate to payment page
     onOpenChange(false);
-    setFormData({ name: "", email: "", phone: "", guests: 1, specialRequests: "" });
-    setCheckIn(undefined);
-    setCheckOut(undefined);
-    setSelectedAddOns([]);
-    setPaymentMethod("");
+    navigate(`/payment?data=${encodeURIComponent(JSON.stringify(bookingData))}`);
   };
 
   if (!room) return null;
@@ -315,25 +271,6 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-primary" />
-                  Payment Method
-                </Label>
-                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-2 gap-2">
-                  {PAYMENT_METHODS.map((method) => (
-                    <div key={method.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={method.id} id={method.id} />
-                      <Label htmlFor={method.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <span>{method.icon}</span>
-                        <span>{method.label}</span>
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
                 <Textarea
@@ -350,9 +287,8 @@ export const BookingModal = ({ room, open, onOpenChange }: BookingModalProps) =>
               <Button
                 type="submit"
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={isSubmitting}
               >
-                {isSubmitting ? "Processing..." : "Submit Booking"}
+                Proceed to Payment
               </Button>
             </form>
           </div>

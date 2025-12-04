@@ -3,12 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar, Users, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calendar, Users, RefreshCw, Search, Plus, Pencil, Trash2, Filter } from "lucide-react";
 import { format } from "date-fns";
 
 interface Booking {
@@ -21,14 +25,46 @@ interface Booking {
   guests: number;
   status: string;
   created_at: string;
+  room_type: string | null;
+  room_price: string | null;
+  booking_type: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
 }
 
 const Admin = () => {
   const { user, loading, isAdmin, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("all");
+  const [filterDate, setFilterDate] = useState("");
+  
+  // Walk-in Modal State
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [walkInData, setWalkInData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    check_in: "",
+    check_out: "",
+    guests: 1,
+    room_type: "",
+    payment_method: "",
+  });
+  
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  
+  // Delete Confirmation
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -42,6 +78,10 @@ const Admin = () => {
       }
     }
   }, [user, loading, isAdmin, navigate]);
+
+  useEffect(() => {
+    filterBookings();
+  }, [bookings, searchTerm, filterType, filterPaymentStatus, filterDate]);
 
   const fetchBookings = async () => {
     setLoadingBookings(true);
@@ -58,12 +98,84 @@ const Admin = () => {
     setLoadingBookings(false);
   };
 
-  const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+  const filterBookings = () => {
+    let filtered = [...bookings];
+    
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(b => 
+        b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.phone.includes(searchTerm) ||
+        b.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Booking type filter
+    if (filterType !== "all") {
+      filtered = filtered.filter(b => (b.booking_type || "online") === filterType);
+    }
+    
+    // Payment status filter
+    if (filterPaymentStatus !== "all") {
+      filtered = filtered.filter(b => (b.payment_status || "pending") === filterPaymentStatus);
+    }
+    
+    // Date filter
+    if (filterDate) {
+      filtered = filtered.filter(b => b.check_in === filterDate);
+    }
+    
+    setFilteredBookings(filtered);
+  };
+
+  const updateBooking = async (id: string, updates: Partial<Booking>) => {
+    const { error } = await supabase.from("bookings").update(updates).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Updated", description: "Booking status updated" });
+      toast({ title: "Updated", description: "Booking updated successfully" });
+      fetchBookings();
+    }
+  };
+
+  const deleteBooking = async (id: string) => {
+    const { error } = await supabase.from("bookings").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: "Booking deleted successfully" });
+      fetchBookings();
+    }
+    setShowDeleteDialog(false);
+    setDeletingId(null);
+  };
+
+  const addWalkIn = async () => {
+    if (!walkInData.name || !walkInData.phone || !walkInData.check_in || !walkInData.check_out) {
+      toast({ title: "Error", description: "Please fill in required fields", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase.from("bookings").insert({
+      name: walkInData.name,
+      email: walkInData.email || `walkin_${Date.now()}@islamare.com`,
+      phone: walkInData.phone,
+      check_in: walkInData.check_in,
+      check_out: walkInData.check_out,
+      guests: walkInData.guests,
+      room_type: walkInData.room_type,
+      booking_type: "walkin",
+      payment_method: walkInData.payment_method,
+      payment_status: "paid",
+      status: "confirmed",
+    });
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Walk-in booking added" });
+      setShowWalkInModal(false);
+      setWalkInData({ name: "", email: "", phone: "", check_in: "", check_out: "", guests: 1, room_type: "", payment_method: "" });
       fetchBookings();
     }
   };
@@ -77,6 +189,23 @@ const Admin = () => {
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
   };
 
+  const getPaymentStatusBadge = (status: string | null) => {
+    if (!status) return <Badge variant="secondary">pending</Badge>;
+    const colors: Record<string, string> = {
+      paid: "bg-green-500",
+      pending: "bg-yellow-500",
+      failed: "bg-red-500",
+    };
+    return <Badge className={`${colors[status] || "bg-gray-500"} text-white`}>{status}</Badge>;
+  };
+
+  const getBookingTypeBadge = (type: string | null) => {
+    if (type === "walkin") {
+      return <Badge variant="outline" className="border-orange-500 text-orange-500">Walk-In</Badge>;
+    }
+    return <Badge variant="outline" className="border-primary text-primary">Online</Badge>;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -88,6 +217,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-7xl">
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate("/")}>
@@ -101,13 +231,18 @@ const Admin = () => {
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
+            <Button onClick={() => setShowWalkInModal(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Walk-In
+            </Button>
             <Button variant="destructive" onClick={() => { signOut(); navigate("/"); }}>
               Sign Out
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Bookings</CardTitle>
@@ -118,11 +253,21 @@ const Admin = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Online Bookings</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-primary">
-                {bookings.filter((b) => b.status === "pending").length}
+                {bookings.filter((b) => (b.booking_type || "online") === "online").length}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Walk-Ins</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-500">
+                {bookings.filter((b) => b.booking_type === "walkin").length}
               </div>
             </CardContent>
           </Card>
@@ -138,54 +283,124 @@ const Admin = () => {
           </Card>
         </div>
 
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, phone, or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-[150px]">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Booking Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="walkin">Walk-In</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Payment Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-[150px]"
+              />
+              {(searchTerm || filterType !== "all" || filterPaymentStatus !== "all" || filterDate) && (
+                <Button variant="ghost" onClick={() => {
+                  setSearchTerm("");
+                  setFilterType("all");
+                  setFilterPaymentStatus("all");
+                  setFilterDate("");
+                }}>
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bookings Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              All Bookings
+              All Reservations ({filteredBookings.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loadingBookings ? (
               <p className="text-center py-8 text-muted-foreground">Loading bookings...</p>
-            ) : bookings.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">No bookings yet</p>
+            ) : filteredBookings.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No bookings found</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Guest</TableHead>
+                      <TableHead>Customer</TableHead>
                       <TableHead>Contact</TableHead>
-                      <TableHead>Check-in</TableHead>
-                      <TableHead>Check-out</TableHead>
-                      <TableHead>
-                        <Users className="h-4 w-4" />
-                      </TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Dates</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking) => (
+                    {filteredBookings.map((booking) => (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-medium">{booking.name}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{booking.name}</p>
+                            <p className="text-xs text-muted-foreground">{booking.room_type || "—"}</p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <div className="text-sm">
                             <div>{booking.email}</div>
                             <div className="text-muted-foreground">{booking.phone}</div>
                           </div>
                         </TableCell>
-                        <TableCell>{format(new Date(booking.check_in), "MMM dd, yyyy")}</TableCell>
-                        <TableCell>{format(new Date(booking.check_out), "MMM dd, yyyy")}</TableCell>
-                        <TableCell>{booking.guests}</TableCell>
-                        <TableCell>{getStatusBadge(booking.status || "pending")}</TableCell>
+                        <TableCell>{getBookingTypeBadge(booking.booking_type)}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{format(new Date(booking.check_in), "MMM dd")}</div>
+                            <div className="text-muted-foreground">to {format(new Date(booking.check_out), "MMM dd")}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {getPaymentStatusBadge(booking.payment_status)}
+                            <p className="text-xs text-muted-foreground">{booking.payment_method || "—"}</p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Select
                             value={booking.status || "pending"}
-                            onValueChange={(value) => updateStatus(booking.id, value)}
+                            onValueChange={(value) => updateBooking(booking.id, { status: value })}
                           >
-                            <SelectTrigger className="w-[130px]">
+                            <SelectTrigger className="w-[120px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -195,6 +410,31 @@ const Admin = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingBooking(booking);
+                                setShowEditModal(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => {
+                                setDeletingId(booking.id);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -203,6 +443,213 @@ const Admin = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Walk-In Modal */}
+        <Dialog open={showWalkInModal} onOpenChange={setShowWalkInModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Walk-In Booking</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Customer Name *</Label>
+                  <Input
+                    value={walkInData.name}
+                    onChange={(e) => setWalkInData({ ...walkInData, name: e.target.value })}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone *</Label>
+                  <Input
+                    value={walkInData.phone}
+                    onChange={(e) => setWalkInData({ ...walkInData, phone: e.target.value })}
+                    placeholder="+63 9XX XXX XXXX"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Email (Optional)</Label>
+                <Input
+                  value={walkInData.email}
+                  onChange={(e) => setWalkInData({ ...walkInData, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Check-In *</Label>
+                  <Input
+                    type="date"
+                    value={walkInData.check_in}
+                    onChange={(e) => setWalkInData({ ...walkInData, check_in: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Check-Out *</Label>
+                  <Input
+                    type="date"
+                    value={walkInData.check_out}
+                    onChange={(e) => setWalkInData({ ...walkInData, check_out: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Guests</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={walkInData.guests}
+                    onChange={(e) => setWalkInData({ ...walkInData, guests: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Room Type</Label>
+                  <Input
+                    value={walkInData.room_type}
+                    onChange={(e) => setWalkInData({ ...walkInData, room_type: e.target.value })}
+                    placeholder="e.g., Tropical Nest"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={walkInData.payment_method} onValueChange={(v) => setWalkInData({ ...walkInData, payment_method: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Credit/Debit Card</SelectItem>
+                    <SelectItem value="gcash">GCash</SelectItem>
+                    <SelectItem value="maya">Maya</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWalkInModal(false)}>Cancel</Button>
+              <Button onClick={addWalkIn}>Add Booking</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Modal */}
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Booking</DialogTitle>
+            </DialogHeader>
+            {editingBooking && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Customer Name</Label>
+                    <Input
+                      value={editingBooking.name}
+                      onChange={(e) => setEditingBooking({ ...editingBooking, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={editingBooking.phone}
+                      onChange={(e) => setEditingBooking({ ...editingBooking, phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={editingBooking.email}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, email: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Check-In</Label>
+                    <Input
+                      type="date"
+                      value={editingBooking.check_in}
+                      onChange={(e) => setEditingBooking({ ...editingBooking, check_in: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Check-Out</Label>
+                    <Input
+                      type="date"
+                      value={editingBooking.check_out}
+                      onChange={(e) => setEditingBooking({ ...editingBooking, check_out: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Payment Status</Label>
+                    <Select
+                      value={editingBooking.payment_status || "pending"}
+                      onValueChange={(v) => setEditingBooking({ ...editingBooking, payment_status: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Booking Status</Label>
+                    <Select
+                      value={editingBooking.status || "pending"}
+                      onValueChange={(v) => setEditingBooking({ ...editingBooking, status: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+              <Button onClick={() => {
+                if (editingBooking) {
+                  updateBooking(editingBooking.id, editingBooking);
+                  setShowEditModal(false);
+                }
+              }}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+            </DialogHeader>
+            <p>Are you sure you want to delete this booking? This action cannot be undone.</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => deletingId && deleteBooking(deletingId)}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
