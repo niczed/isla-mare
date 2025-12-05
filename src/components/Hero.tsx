@@ -29,13 +29,23 @@ export const Hero = () => {
           <p className="mx-auto max-w-2xl text-lg text-white/90 md:text-xl">
             "Where Every Stay Feels Like the Maldives."
           </p>
-          <Button
-            size="lg"
-            onClick={handleBookNow}
-            className="mt-8 bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-[0_8px_30px_rgb(0,188,212,0.4)] transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-[0_12px_40px_rgb(0,188,212,0.5)]"
-          >
-            BOOK NOW
-          </Button>
+          <div className="mt-8 flex flex-col sm:flex-row gap-4">
+            <Button
+              size="lg"
+              onClick={handleBookNow}
+              className="bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-[0_8px_30px_rgb(0,188,212,0.4)] transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-[0_12px_40px_rgb(0,188,212,0.5)]"
+            >
+              BOOK NOW
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("/admin")}
+              className="px-8 py-6 text-lg font-semibold border-white/50 text-white bg-white/10 backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/20"
+            >
+              ADMIN
+            </Button>
+          </div>
         </div>
       </div>
 

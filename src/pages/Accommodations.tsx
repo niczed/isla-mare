@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Wifi, Waves, Tv, UtensilsCrossed, Bath, Coffee, TreePine, Dumbbell, Sparkles, Bed, AirVent, Sofa } from "lucide-react";
+import { Users, Wifi, Waves, Tv, UtensilsCrossed, Bath, Coffee, TreePine, Dumbbell, Sparkles, Bed, AirVent, Sofa, ArrowLeft } from "lucide-react";
 import { BookingModal } from "@/components/BookingModal";
 import deluxeVilla from "@/assets/deluxe-villa.jpg";
 import beachBungalow from "@/assets/beach-bungalow.jpg";
@@ -165,6 +166,7 @@ const rooms: Room[] = [
 ];
 
 const Accommodations = () => {
+  const navigate = useNavigate();
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -197,13 +199,23 @@ const Accommodations = () => {
       <main className="flex-1 pt-20">
         {/* Hero Section */}
         <section className="bg-gradient-tropical px-4 py-16">
-          <div className="mx-auto max-w-6xl text-center">
-            <h1 className="mb-4 text-4xl font-bold text-foreground md:text-5xl animate-fade-in">
-              Our Accommodations
-            </h1>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground animate-fade-in" style={{ animationDelay: "0.1s" }}>
-              Choose from our selection of beautifully designed rooms and villas, each offering a unique tropical experience.
-            </p>
+          <div className="mx-auto max-w-6xl">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/")}
+              className="mb-6 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+            <div className="text-center">
+              <h1 className="mb-4 text-4xl font-bold text-foreground md:text-5xl animate-fade-in">
+                Our Accommodations
+              </h1>
+              <p className="mx-auto max-w-2xl text-lg text-muted-foreground animate-fade-in" style={{ animationDelay: "0.1s" }}>
+                Choose from our selection of beautifully designed rooms and villas, each offering a unique tropical experience.
+              </p>
+            </div>
           </div>
         </section>
 

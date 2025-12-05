@@ -19,15 +19,15 @@ export const Footer = () => {
             <div className="space-y-3 text-background/80">
               <div className="flex items-start gap-2">
                 <MapPin className="mt-1 h-4 w-4 flex-shrink-0" />
-                <span>Paradise Island, Tropical Ocean</span>
+                <span>Brgy. Mataas na Kahoy, Batangas, Philippines</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                <span>+1 (555) 123-4567</span>
+                <span>+63 917 123 4567</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                <span>info@islamare.resort</span>
+                <span>reservations@islamare.ph</span>
               </div>
             </div>
           </div>
