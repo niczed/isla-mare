@@ -130,33 +130,6 @@ export const About = () => {
           </div>
         </div>
 
-        {/* Contact Info */}
-        <div className="p-8 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
-          <div className="text-center mb-6">
-            <p className="text-lg italic text-muted-foreground mb-4">
-              "Discover your perfect island escape at Isla Maré Resort — where comfort meets nature and unforgettable memories are waiting. 
-              Book your stay today, and let the island's magic renew your soul."
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 text-sm">
-            <div className="flex items-center gap-2 text-foreground">
-              <Phone className="h-4 w-4 text-primary" />
-              <span>+63 934-137-2634</span>
-            </div>
-            <div className="flex items-center gap-2 text-foreground">
-              <Globe className="h-4 w-4 text-primary" />
-              <span>www.islamare.com</span>
-            </div>
-            <div className="flex items-center gap-2 text-foreground">
-              <Mail className="h-4 w-4 text-primary" />
-              <span>Hello@islamare.com</span>
-            </div>
-            <div className="flex items-center gap-2 text-foreground">
-              <MapPin className="h-4 w-4 text-primary" />
-              <span>Barangay Bacungan, Sitio Tagkawayanan, Puerto Princesa City, Palawan 5300</span>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

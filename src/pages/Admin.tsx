@@ -8,11 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar, Users, RefreshCw, Search, Plus, Pencil, Trash2, Filter } from "lucide-react";
+import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter } from "lucide-react";
 import { format } from "date-fns";
 
 interface Booking {
@@ -33,7 +31,6 @@ interface Booking {
 }
 
 const Admin = () => {
-  const { user, loading, isAdmin, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -67,17 +64,8 @@ const Admin = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        navigate("/auth");
-      } else if (!isAdmin) {
-        toast({ title: "Access Denied", description: "Admin access required", variant: "destructive" });
-        navigate("/");
-      } else {
-        fetchBookings();
-      }
-    }
-  }, [user, loading, isAdmin, navigate]);
+    fetchBookings();
+  }, []);
 
   useEffect(() => {
     filterBookings();
@@ -206,15 +194,7 @@ const Admin = () => {
     return <Badge variant="outline" className="border-primary text-primary">Online</Badge>;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-foreground">Loading...</p>
-      </div>
-    );
-  }
-
-  return (
+return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
@@ -234,9 +214,6 @@ const Admin = () => {
             <Button onClick={() => setShowWalkInModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Walk-In
-            </Button>
-            <Button variant="destructive" onClick={() => { signOut(); navigate("/"); }}>
-              Sign Out
             </Button>
           </div>
         </div>
