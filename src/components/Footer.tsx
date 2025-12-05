@@ -1,4 +1,4 @@
-import { MapPin, Phone, Mail } from "lucide-react";
+import { MapPin, Phone, Mail, Globe } from "lucide-react";
 
 export const Footer = () => {
   return (
@@ -17,17 +17,21 @@ export const Footer = () => {
           <div>
             <h4 className="mb-4 text-lg font-semibold">Contact Us</h4>
             <div className="space-y-3 text-background/80">
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-1 h-4 w-4 flex-shrink-0" />
-                <span>Brgy. Mataas na Kahoy, Batangas, Philippines</span>
-              </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                <span>+63 917 123 4567</span>
+                <span>+63 934-137-2634</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 flex-shrink-0" />
+                <span>www.islamare.com</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                <span>reservations@islamare.ph</span>
+                <span>Hello@islamare.com</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-1 h-4 w-4 flex-shrink-0" />
+                <span>Barangay Bacungan, Sitio Tagkawayanan, Puerto Princesa City, Palawan 5300</span>
               </div>
             </div>
           </div>
