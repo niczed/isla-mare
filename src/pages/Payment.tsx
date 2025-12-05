@@ -67,7 +67,8 @@ const Payment = () => {
     const data = searchParams.get("data");
     if (data) {
       try {
-        setBookingData(JSON.parse(decodeURIComponent(data)));
+        const parsed = JSON.parse(decodeURIComponent(data));
+        setBookingData(parsed);
       } catch (e) {
         toast({
           title: "Error",
@@ -76,8 +77,6 @@ const Payment = () => {
         });
         navigate("/accommodations");
       }
-    } else {
-      navigate("/accommodations");
     }
   }, [searchParams, navigate, toast]);
 
@@ -144,8 +143,11 @@ const Payment = () => {
 
   if (!bookingData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">Loading booking details...</p>
+        <Button variant="outline" onClick={() => navigate("/accommodations")}>
+          Back to Accommodations
+        </Button>
       </div>
     );
   }
