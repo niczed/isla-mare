@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter, LogIn } from "lucide-react";
 import { format } from "date-fns";
 
 interface Booking {
@@ -33,6 +34,7 @@ interface Booking {
 const Admin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, loading, isAdmin, signOut } = useAuth();
   
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -64,8 +66,10 @@ const Admin = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    if (user && isAdmin) {
+      fetchBookings();
+    }
+  }, [user, isAdmin]);
 
   useEffect(() => {
     filterBookings();
@@ -194,7 +198,51 @@ const Admin = () => {
     return <Badge variant="outline" className="border-primary text-primary">Online</Badge>;
   };
 
-return (
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  // Not logged in - show login prompt
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-bold">Admin Access Required</h1>
+        <p className="text-muted-foreground">Please sign in to access the admin dashboard.</p>
+        <Button onClick={() => navigate("/auth")}>
+          <LogIn className="mr-2 h-4 w-4" />
+          Sign In
+        </Button>
+        <Button variant="ghost" onClick={() => navigate("/")}>
+          Back to Home
+        </Button>
+      </div>
+    );
+  }
+
+  // User logged in but not admin
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+        <p className="text-muted-foreground">You don't have admin privileges to access this page.</p>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => navigate("/")}>
+            Back to Home
+          </Button>
+          <Button variant="outline" onClick={signOut}>
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
@@ -214,6 +262,9 @@ return (
             <Button onClick={() => setShowWalkInModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Walk-In
+            </Button>
+            <Button variant="ghost" onClick={signOut}>
+              Sign Out
             </Button>
           </div>
         </div>
