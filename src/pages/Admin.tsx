@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter, LogIn } from "lucide-react";
+import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter, LogIn, Mail, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 interface Booking {
@@ -34,7 +34,12 @@ interface Booking {
 const Admin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, loading, isAdmin, signOut } = useAuth();
+  const { user, loading, isAdmin, signIn, signOut } = useAuth();
+  
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -64,6 +69,19 @@ const Admin = () => {
   // Delete Confirmation
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Handle admin login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    try {
+      await signIn(loginEmail, loginPassword);
+      toast({ title: "Signed in successfully" });
+    } catch (error: any) {
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+    }
+    setIsLoggingIn(false);
+  };
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -207,37 +225,64 @@ const Admin = () => {
     );
   }
 
-  // Not logged in - show login prompt
-  if (!user) {
+  // Not logged in - show login form
+  if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Admin Access Required</h1>
-        <p className="text-muted-foreground">Please sign in to access the admin dashboard.</p>
-        <Button onClick={() => navigate("/auth")}>
-          <LogIn className="mr-2 h-4 w-4" />
-          Sign In
-        </Button>
-        <Button variant="ghost" onClick={() => navigate("/")}>
-          Back to Home
-        </Button>
-      </div>
-    );
-  }
-
-  // User logged in but not admin
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
-        <p className="text-muted-foreground">You don't have admin privileges to access this page.</p>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => navigate("/")}>
-            Back to Home
-          </Button>
-          <Button variant="outline" onClick={signOut}>
-            Sign Out
-          </Button>
-        </div>
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <p className="text-muted-foreground text-sm">Sign in to access the admin dashboard</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-primary" />
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                {isLoggingIn ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+            {user && !isAdmin && (
+              <div className="mt-4 p-3 bg-destructive/10 rounded-lg text-center">
+                <p className="text-sm text-destructive">You don't have admin privileges.</p>
+                <Button variant="link" size="sm" onClick={signOut} className="text-destructive">
+                  Sign out and try another account
+                </Button>
+              </div>
+            )}
+            <div className="mt-4 text-center">
+              <Button variant="ghost" onClick={() => navigate("/")}>
+                Back to Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
