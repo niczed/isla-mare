@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, CreditCard, Wallet, Gift, Shield, CheckCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, Wallet, Gift, Shield, CheckCircle, Smartphone } from "lucide-react";
 
 const PAYMENT_METHODS = [
   { 
@@ -62,6 +62,7 @@ const Payment = () => {
   });
   
   const [giftCardCode, setGiftCardCode] = useState("");
+  const [ewalletNumber, setEwalletNumber] = useState("");
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -101,6 +102,16 @@ const Payment = () => {
       }
     }
 
+    // Validate e-wallet number if e-wallet is selected
+    if (selectedEwallet && !ewalletNumber) {
+      toast({
+        title: "E-Wallet Number Required",
+        description: "Please enter your e-wallet / GCash number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     const finalPaymentMethod = selectedEwallet || paymentMethod;
@@ -118,8 +129,9 @@ const Payment = () => {
       special_requests: bookingData.specialRequests,
       booking_type: "online",
       payment_method: finalPaymentMethod,
-      payment_status: "paid",
-      status: "confirmed",
+      payment_status: "pending",
+      status: "pending",
+      ewallet_number: selectedEwallet ? ewalletNumber : null,
     });
 
     setIsProcessing(false);
@@ -134,8 +146,8 @@ const Payment = () => {
     }
 
     toast({
-      title: "Payment Successful!",
-      description: "Your booking has been confirmed. Check your email for details.",
+      title: "Booking Submitted!",
+      description: "Your booking has been submitted. Please wait for payment confirmation.",
     });
 
     navigate("/accommodations");
@@ -181,6 +193,7 @@ const Payment = () => {
                   onValueChange={(value) => {
                     setPaymentMethod(value);
                     setSelectedEwallet("");
+                    setEwalletNumber("");
                   }}
                   className="space-y-3"
                 >
@@ -195,6 +208,7 @@ const Payment = () => {
                       onClick={() => {
                         setPaymentMethod(method.id);
                         setSelectedEwallet("");
+                        setEwalletNumber("");
                       }}
                     >
                       <RadioGroupItem value={method.id} id={method.id} />
@@ -297,6 +311,27 @@ const Payment = () => {
                       </button>
                     ))}
                   </div>
+
+                  {/* E-Wallet Number Input */}
+                  {selectedEwallet && (
+                    <div className="space-y-4 p-4 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 mt-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Smartphone className="h-4 w-4 text-primary" />
+                          Enter your E-Wallet / GCash Number
+                        </Label>
+                        <Input
+                          placeholder="09XX XXX XXXX"
+                          value={ewalletNumber}
+                          onChange={(e) => setEwalletNumber(e.target.value)}
+                          type="tel"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This number will be used for payment verification
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

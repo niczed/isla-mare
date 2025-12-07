@@ -8,11 +8,52 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter, LogIn, Mail, Lock } from "lucide-react";
+import { ArrowLeft, Calendar, RefreshCw, Search, Plus, Pencil, Trash2, Filter, Mail, Lock, Check, Eye } from "lucide-react";
 import { format } from "date-fns";
+
+// Room data for walk-in selection
+const ROOMS = [
+  {
+    title: "Deluxe Overwater Villa",
+    description: "Experience ultimate luxury in our overwater villa with direct ocean access and private sundeck.",
+    price: "$450/night",
+    image: "/deluxe-villa.jpg",
+    capacity: 2,
+    amenities: ["Ocean Access", "Private Sundeck", "King Bed", "WiFi", "Mini Bar"],
+  },
+  {
+    title: "Beach Bungalow",
+    description: "Cozy beachfront accommodation with traditional tropical design and stunning sunset views.",
+    price: "$280/night",
+    image: "/beach-bungalow.jpg",
+    capacity: 4,
+    amenities: ["Beachfront", "Sunset Views", "Queen Beds", "WiFi", "AC"],
+  },
+  {
+    title: "Ocean Suite",
+    description: "Spacious suite with panoramic ocean views, modern amenities, and private balcony.",
+    price: "$350/night",
+    image: "/ocean-suite.jpg",
+    capacity: 3,
+    amenities: ["Ocean Views", "Private Balcony", "King Bed", "WiFi", "Jacuzzi"],
+  },
+];
+
+const ADD_ONS = [
+  { id: "massage", label: "In-room massage", price: "₱800/hour" },
+  { id: "cabana", label: "All-day cabana rental", price: "₱1,000" },
+  { id: "bonfire", label: "Bonfire setup (night)", price: "₱1,200" },
+  { id: "gym", label: "Gym use and shower", price: "₱600" },
+  { id: "checkin", label: "Early check-in / late check-out", price: "₱1,000–₱2,000" },
+  { id: "decoration", label: "Room decoration", price: "₱1,500–₱3,000" },
+  { id: "extrabed", label: "Extra bed or mattress", price: "₱800–₱1,000/night" },
+  { id: "transfer", label: "Airport/van transfers", price: "₱2,500–₱3,500" },
+  { id: "laundry", label: "Laundry service", price: "Based on weight" },
+];
 
 interface Booking {
   id: string;
@@ -29,6 +70,9 @@ interface Booking {
   booking_type: string | null;
   payment_method: string | null;
   payment_status: string | null;
+  add_ons: string[] | null;
+  special_requests: string | null;
+  ewallet_number: string | null;
 }
 
 const Admin = () => {
@@ -60,11 +104,17 @@ const Admin = () => {
     guests: 1,
     room_type: "",
     payment_method: "",
+    add_ons: [] as string[],
   });
+  const [selectedWalkInRoom, setSelectedWalkInRoom] = useState<typeof ROOMS[0] | null>(null);
   
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  
+  // View Booking Modal
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
   
   // Delete Confirmation
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -111,7 +161,6 @@ const Admin = () => {
   const filterBookings = () => {
     let filtered = [...bookings];
     
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(b => 
         b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,17 +169,14 @@ const Admin = () => {
       );
     }
     
-    // Booking type filter
     if (filterType !== "all") {
       filtered = filtered.filter(b => (b.booking_type || "online") === filterType);
     }
     
-    // Payment status filter
     if (filterPaymentStatus !== "all") {
       filtered = filtered.filter(b => (b.payment_status || "pending") === filterPaymentStatus);
     }
     
-    // Date filter
     if (filterDate) {
       filtered = filtered.filter(b => b.check_in === filterDate);
     }
@@ -148,6 +194,20 @@ const Admin = () => {
     }
   };
 
+  const confirmPayment = async (id: string) => {
+    const { error } = await supabase.from("bookings").update({ 
+      payment_status: "paid",
+      status: "confirmed"
+    }).eq("id", id);
+    
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Payment Confirmed", description: "Booking has been marked as paid" });
+      fetchBookings();
+    }
+  };
+
   const deleteBooking = async (id: string) => {
     const { error } = await supabase.from("bookings").delete().eq("id", id);
     if (error) {
@@ -160,11 +220,23 @@ const Admin = () => {
     setDeletingId(null);
   };
 
+  const toggleWalkInAddOn = (id: string) => {
+    setWalkInData(prev => ({
+      ...prev,
+      add_ons: prev.add_ons.includes(id)
+        ? prev.add_ons.filter(a => a !== id)
+        : [...prev.add_ons, id]
+    }));
+  };
+
   const addWalkIn = async () => {
-    if (!walkInData.name || !walkInData.phone || !walkInData.check_in || !walkInData.check_out) {
-      toast({ title: "Error", description: "Please fill in required fields", variant: "destructive" });
+    if (!walkInData.name || !walkInData.phone || !walkInData.check_in || !walkInData.check_out || !walkInData.room_type) {
+      toast({ title: "Error", description: "Please fill in required fields including room type", variant: "destructive" });
       return;
     }
+
+    const selectedRoom = ROOMS.find(r => r.title === walkInData.room_type);
+    const addOnLabels = walkInData.add_ons.map(id => ADD_ONS.find(a => a.id === id)?.label).filter(Boolean);
 
     const { error } = await supabase.from("bookings").insert({
       name: walkInData.name,
@@ -174,10 +246,12 @@ const Admin = () => {
       check_out: walkInData.check_out,
       guests: walkInData.guests,
       room_type: walkInData.room_type,
+      room_price: selectedRoom?.price || "",
       booking_type: "walkin",
       payment_method: walkInData.payment_method,
-      payment_status: "paid",
-      status: "confirmed",
+      payment_status: walkInData.payment_method ? "paid" : "pending",
+      status: walkInData.payment_method ? "confirmed" : "pending",
+      add_ons: addOnLabels,
     });
 
     if (error) {
@@ -185,28 +259,23 @@ const Admin = () => {
     } else {
       toast({ title: "Success", description: "Walk-in booking added" });
       setShowWalkInModal(false);
-      setWalkInData({ name: "", email: "", phone: "", check_in: "", check_out: "", guests: 1, room_type: "", payment_method: "" });
+      setWalkInData({ name: "", email: "", phone: "", check_in: "", check_out: "", guests: 1, room_type: "", payment_method: "", add_ons: [] });
+      setSelectedWalkInRoom(null);
       fetchBookings();
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      pending: "secondary",
-      confirmed: "default",
-      cancelled: "destructive",
-    };
-    return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
-  };
-
   const getPaymentStatusBadge = (status: string | null) => {
-    if (!status) return <Badge variant="secondary">pending</Badge>;
-    const colors: Record<string, string> = {
-      paid: "bg-green-500",
-      pending: "bg-yellow-500",
-      failed: "bg-red-500",
-    };
-    return <Badge className={`${colors[status] || "bg-gray-500"} text-white`}>{status}</Badge>;
+    if (!status || status === "pending") {
+      return <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">Pending</Badge>;
+    }
+    if (status === "paid") {
+      return <Badge className="bg-green-500 text-white hover:bg-green-600">Paid</Badge>;
+    }
+    if (status === "failed") {
+      return <Badge variant="destructive">Failed</Badge>;
+    }
+    return <Badge variant="secondary">{status}</Badge>;
   };
 
   const getBookingTypeBadge = (type: string | null) => {
@@ -246,7 +315,7 @@ const Admin = () => {
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="admin@example.com"
+                  placeholder="Hello@islamare.com"
                   required
                 />
               </div>
@@ -346,11 +415,11 @@ const Admin = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-600">
-                {bookings.filter((b) => b.status === "confirmed").length}
+                {bookings.filter((b) => b.payment_status === "paid").length}
               </div>
             </CardContent>
           </Card>
@@ -390,7 +459,6 @@ const Admin = () => {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
               <Input
@@ -432,9 +500,10 @@ const Admin = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Customer</TableHead>
-                      <TableHead>Contact</TableHead>
+                      <TableHead>Room Type</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Dates</TableHead>
+                      <TableHead>Add-Ons</TableHead>
                       <TableHead>Payment</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -446,26 +515,47 @@ const Admin = () => {
                         <TableCell>
                           <div>
                             <p className="font-medium">{booking.name}</p>
-                            <p className="text-xs text-muted-foreground">{booking.room_type || "—"}</p>
+                            <p className="text-xs text-muted-foreground">{booking.phone}</p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
-                            <div>{booking.email}</div>
-                            <div className="text-muted-foreground">{booking.phone}</div>
-                          </div>
+                          <span className="font-medium text-sm">{booking.room_type || "—"}</span>
+                          {booking.room_price && (
+                            <p className="text-xs text-muted-foreground">{booking.room_price}</p>
+                          )}
                         </TableCell>
                         <TableCell>{getBookingTypeBadge(booking.booking_type)}</TableCell>
                         <TableCell>
-                          <div className="text-sm">
-                            <div>{format(new Date(booking.check_in), "MMM dd")}</div>
-                            <div className="text-muted-foreground">to {format(new Date(booking.check_out), "MMM dd")}</div>
+                          <div className="text-sm whitespace-nowrap">
+                            {format(new Date(booking.check_in), "MMM dd")} → {format(new Date(booking.check_out), "MMM dd")}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1">
+                          {booking.add_ons && booking.add_ons.length > 0 ? (
+                            <div className="max-w-[150px]">
+                              <p className="text-xs text-muted-foreground truncate" title={booking.add_ons.join(", ")}>
+                                {booking.add_ons.slice(0, 2).join(", ")}
+                                {booking.add_ons.length > 2 && ` +${booking.add_ons.length - 2}`}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">None</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
                             {getPaymentStatusBadge(booking.payment_status)}
-                            <p className="text-xs text-muted-foreground">{booking.payment_method || "—"}</p>
+                            {booking.payment_status !== "paid" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                                onClick={() => confirmPayment(booking.id)}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Confirm
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -484,7 +574,17 @@ const Admin = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setViewingBooking(booking);
+                                setShowViewModal(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -519,92 +619,243 @@ const Admin = () => {
 
         {/* Walk-In Modal */}
         <Dialog open={showWalkInModal} onOpenChange={setShowWalkInModal}>
-          <DialogContent>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Walk-In Booking</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Customer Name *</Label>
-                  <Input
-                    value={walkInData.name}
-                    onChange={(e) => setWalkInData({ ...walkInData, name: e.target.value })}
-                    placeholder="John Doe"
-                  />
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left - Form */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Customer Name *</Label>
+                    <Input
+                      value={walkInData.name}
+                      onChange={(e) => setWalkInData({ ...walkInData, name: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone *</Label>
+                    <Input
+                      value={walkInData.phone}
+                      onChange={(e) => setWalkInData({ ...walkInData, phone: e.target.value })}
+                      placeholder="+63 9XX XXX XXXX"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Phone *</Label>
+                  <Label>Email (Optional)</Label>
                   <Input
-                    value={walkInData.phone}
-                    onChange={(e) => setWalkInData({ ...walkInData, phone: e.target.value })}
-                    placeholder="+63 9XX XXX XXXX"
+                    value={walkInData.email}
+                    onChange={(e) => setWalkInData({ ...walkInData, email: e.target.value })}
+                    placeholder="email@example.com"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Check-In *</Label>
+                    <Input
+                      type="date"
+                      value={walkInData.check_in}
+                      onChange={(e) => setWalkInData({ ...walkInData, check_in: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Check-Out *</Label>
+                    <Input
+                      type="date"
+                      value={walkInData.check_out}
+                      onChange={(e) => setWalkInData({ ...walkInData, check_out: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Guests</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={walkInData.guests}
+                      onChange={(e) => setWalkInData({ ...walkInData, guests: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Room Type *</Label>
+                    <Select 
+                      value={walkInData.room_type} 
+                      onValueChange={(v) => {
+                        setWalkInData({ ...walkInData, room_type: v });
+                        setSelectedWalkInRoom(ROOMS.find(r => r.title === v) || null);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select room" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROOMS.map(room => (
+                          <SelectItem key={room.title} value={room.title}>
+                            {room.title} - {room.price}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <Select value={walkInData.payment_method} onValueChange={(v) => setWalkInData({ ...walkInData, payment_method: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Credit/Debit Card</SelectItem>
+                      <SelectItem value="gcash">GCash</SelectItem>
+                      <SelectItem value="maya">Maya</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Add-ons */}
+                <div className="space-y-2">
+                  <Label>Add-Ons (Optional)</Label>
+                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                    {ADD_ONS.map(addon => (
+                      <div key={addon.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`walkin-${addon.id}`}
+                          checked={walkInData.add_ons.includes(addon.id)}
+                          onCheckedChange={() => toggleWalkInAddOn(addon.id)}
+                        />
+                        <label htmlFor={`walkin-${addon.id}`} className="text-sm cursor-pointer flex-1">
+                          {addon.label} <span className="text-muted-foreground">({addon.price})</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Email (Optional)</Label>
-                <Input
-                  value={walkInData.email}
-                  onChange={(e) => setWalkInData({ ...walkInData, email: e.target.value })}
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Check-In *</Label>
-                  <Input
-                    type="date"
-                    value={walkInData.check_in}
-                    onChange={(e) => setWalkInData({ ...walkInData, check_in: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Check-Out *</Label>
-                  <Input
-                    type="date"
-                    value={walkInData.check_out}
-                    onChange={(e) => setWalkInData({ ...walkInData, check_out: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Guests</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={walkInData.guests}
-                    onChange={(e) => setWalkInData({ ...walkInData, guests: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Room Type</Label>
-                  <Input
-                    value={walkInData.room_type}
-                    onChange={(e) => setWalkInData({ ...walkInData, room_type: e.target.value })}
-                    placeholder="e.g., Tropical Nest"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Payment Method</Label>
-                <Select value={walkInData.payment_method} onValueChange={(v) => setWalkInData({ ...walkInData, payment_method: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="card">Credit/Debit Card</SelectItem>
-                    <SelectItem value="gcash">GCash</SelectItem>
-                    <SelectItem value="maya">Maya</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Right - Room Preview */}
+              <div className="space-y-4">
+                {selectedWalkInRoom ? (
+                  <div className="bg-muted/30 rounded-lg p-4 space-y-4">
+                    <img
+                      src={selectedWalkInRoom.image}
+                      alt={selectedWalkInRoom.title}
+                      className="w-full h-40 object-cover rounded-lg"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg";
+                      }}
+                    />
+                    <div>
+                      <h3 className="font-bold text-lg">{selectedWalkInRoom.title}</h3>
+                      <p className="text-primary font-semibold">{selectedWalkInRoom.price}</p>
+                      <p className="text-sm text-muted-foreground mt-2">{selectedWalkInRoom.description}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm mb-2">Amenities:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedWalkInRoom.amenities.map((amenity, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">{amenity}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Capacity: Up to {selectedWalkInRoom.capacity} guests</p>
+                  </div>
+                ) : (
+                  <div className="bg-muted/30 rounded-lg p-8 text-center text-muted-foreground">
+                    Select a room to see details
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowWalkInModal(false)}>Cancel</Button>
               <Button onClick={addWalkIn}>Add Booking</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Booking Modal */}
+        <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Booking Details</DialogTitle>
+            </DialogHeader>
+            {viewingBooking && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Customer</p>
+                    <p className="font-medium">{viewingBooking.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Contact</p>
+                    <p className="font-medium">{viewingBooking.phone}</p>
+                    <p className="text-sm text-muted-foreground">{viewingBooking.email}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Room Type</p>
+                    <p className="font-medium">{viewingBooking.room_type || "—"}</p>
+                    <p className="text-sm text-primary">{viewingBooking.room_price}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Dates</p>
+                    <p className="font-medium">
+                      {format(new Date(viewingBooking.check_in), "MMM dd, yyyy")} → {format(new Date(viewingBooking.check_out), "MMM dd, yyyy")}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Guests</p>
+                    <p className="font-medium">{viewingBooking.guests}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Booking Type</p>
+                    {getBookingTypeBadge(viewingBooking.booking_type)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Payment Status</p>
+                    {getPaymentStatusBadge(viewingBooking.payment_status)}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Payment Method</p>
+                    <p className="font-medium capitalize">{viewingBooking.payment_method || "—"}</p>
+                  </div>
+                </div>
+                {viewingBooking.ewallet_number && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">E-Wallet Number</p>
+                    <p className="font-medium">{viewingBooking.ewallet_number}</p>
+                  </div>
+                )}
+                {viewingBooking.add_ons && viewingBooking.add_ons.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Add-Ons</p>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingBooking.add_ons.map((addon, idx) => (
+                        <Badge key={idx} variant="secondary">{addon}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {viewingBooking.special_requests && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Special Requests</p>
+                    <p className="text-sm">{viewingBooking.special_requests}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setShowViewModal(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
