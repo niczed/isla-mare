@@ -36,6 +36,14 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         runtimeCaching: [
+          // Don't cache Supabase API/auth requests — always network
+          {
+            urlPattern: new RegExp('https://.*\\.supabase\\.co/.*'),
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'supabase-network-only'
+            }
+          },
           {
             urlPattern: /\/(.*)/,
             handler: "NetworkFirst",
