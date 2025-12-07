@@ -22,6 +22,7 @@ export type Database = {
           check_out: string
           created_at: string | null
           email: string
+          ewallet_number: string | null
           guests: number
           id: string
           name: string
@@ -42,6 +43,7 @@ export type Database = {
           check_out: string
           created_at?: string | null
           email: string
+          ewallet_number?: string | null
           guests: number
           id?: string
           name: string
@@ -62,6 +64,7 @@ export type Database = {
           check_out?: string
           created_at?: string | null
           email?: string
+          ewallet_number?: string | null
           guests?: number
           id?: string
           name?: string
